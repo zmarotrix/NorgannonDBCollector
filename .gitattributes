@@ -1,0 +1,5 @@
+* text=auto
+*.tga binary
+*.ttf binary
+*.png binary
+*.blp binary
