@@ -52,6 +52,7 @@ function C.SeeUnit(unit, precise)
   if name then guidByName[name] = guid end
 
   if kind == "npcs" then
+    if C.TagInstanceNpc then C.TagInstanceNpc(id) end
     local level = UnitLevel and C.pub(UnitLevel(unit))
     if type(level) == "number" and level > 0 then
       if not rec.minLevel or level < rec.minLevel then rec.minLevel = level end
@@ -59,6 +60,7 @@ function C.SeeUnit(unit, precise)
     end
     local class = UnitClassification and C.pub(UnitClassification(unit))
     if class and RANKS[class] then rec.rank = RANKS[class] end
+    if (class == "worldboss" or level == -1) and C.TagInstanceBoss then C.TagInstanceBoss(id, "worldboss", name) end
   end
 
   if seenGuid[guid] then return id, kind end
@@ -364,6 +366,7 @@ local function countKill(guid)
   if kind ~= "npcs" then return end
   killed[guid] = true
   C.Inc(C.Record("npcs", id).obs, "kills")
+  if C.TagInstanceNpc then C.TagInstanceNpc(id) end
 end
 
 local function flushKills()
@@ -550,7 +553,18 @@ end
 
 handlers.PLAYER_TARGET_CHANGED = function() C.SeeUnit("target") end
 handlers.UPDATE_MOUSEOVER_UNIT = function() C.SeeUnit("mouseover") end
-handlers.PLAYER_REGEN_ENABLED = flushKills
+handlers.PLAYER_REGEN_ENABLED = function()
+  flushKills()
+  C.FlushInstanceBosses()
+end
+handlers.PLAYER_ENTERING_WORLD = function()
+  C.UpdateInstance()
+  if RequestRaidInfo then RequestRaidInfo() end   -- answers with UPDATE_INSTANCE_INFO (lockouts)
+end
+handlers.ZONE_CHANGED_NEW_AREA = function() C.UpdateInstance() end
+handlers.ENCOUNTER_END = function(...) C.OnEncounterEnd(...) end
+handlers.INSTANCE_ENCOUNTER_ENGAGE_UNIT = function() C.ReadBossFrames() end
+handlers.UPDATE_INSTANCE_INFO = function() C.ReadLockouts() end
 handlers.MERCHANT_SHOW = function() C.ScanMerchant(false) end
 handlers.MERCHANT_UPDATE = function() C.ScanMerchant(true) end
 handlers.TAXIMAP_OPENED = function()

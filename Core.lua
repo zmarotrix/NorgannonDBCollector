@@ -97,7 +97,7 @@ local function newStore()
     schema = { major = DB.schema.major, minor = DB.schema.minor },
     settings = { applyCorrections = true, chat = true, paused = false },
     meta = { sessions = 0 },
-    npcs = {}, objects = {}, quests = {}, items = {},
+    npcs = {}, objects = {}, quests = {}, items = {}, instances = {},
     mismatches = {},
   }
 end
@@ -124,7 +124,7 @@ function C.InitStore()
   sv.meta.db = DB.info and { generated = DB.info.generated, build = DB.info.build }
   sv.meta.lastSeen = time and time() or 0
   sv.meta.firstSeen = sv.meta.firstSeen or sv.meta.lastSeen
-  for _, kind in ipairs({ "npcs", "objects", "quests", "items", "mismatches" }) do
+  for _, kind in ipairs({ "npcs", "objects", "quests", "items", "instances", "mismatches" }) do
     sv[kind] = sv[kind] or {}
   end
   C.sv = sv

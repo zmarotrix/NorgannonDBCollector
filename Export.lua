@@ -9,7 +9,7 @@
 local C = NorgannonDBCollector
 
 C.EXPORT_FORMAT = 1
-local EXPORTED = { "schema", "meta", "npcs", "objects", "quests", "items", "mismatches" }
+local EXPORTED = { "schema", "meta", "npcs", "objects", "quests", "items", "instances", "mismatches" }
 
 local function contributorId()
   local settings = C.sv.settings

@@ -28,6 +28,7 @@ function C.Stats()
   local sv = C.sv
   local s = {
     npcs = count(sv.npcs), objects = count(sv.objects), quests = count(sv.quests), items = count(sv.items),
+    instances = count(sv.instances),
     mismatches = count(sv.mismatches), newMismatches = 0, byType = {},
   }
   for _, m in pairs(sv.mismatches) do
