@@ -1,6 +1,12 @@
-![NorgannonDB Collector: help map Azeroth](../../brand/png/collector/collector-banner.png)
+![NorgannonDB Collector: help map Azeroth](.github/collector-banner.png)
 
 # NorgannonDB Collector
+
+> [!WARNING]
+> **Very much a work in progress.** This is an early build for WoW Forever (client 1.60.1), in
+> active development and testing. Expect missing features, rough edges, bugs, and changes that
+> break things between versions. Bug reports and feedback are welcome in
+> [Issues](../../issues).
 
 **Play as you always do. Every NPC, quest and drop you see makes the database better.**
 
