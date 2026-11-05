@@ -103,7 +103,7 @@ text around them. Or copy one string and use `--clipboard`:
 ```bash
 python tools/norgannondb/import_collected.py inbox/*.txt --merge
 python tools/norgannondb/import_collected.py --clipboard --merge
-python tools/norgannondb/import_collected.py "<WoW>/_classic_beta_/WTF/Account/<ACCOUNT>/SavedVariables/NorgannonDBCollector.lua" --merge
+python tools/norgannondb/import_collected.py "<WoW>/_forever_/WTF/Account/<ACCOUNT>/SavedVariables/NorgannonDBCollector.lua" --merge
 ```
 
 Each player's data is stored once in `build/collected/submissions/<contributor>.lua`, and a newer
