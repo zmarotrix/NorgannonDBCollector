@@ -3,7 +3,7 @@
 ## Notes: Help map Azeroth: quietly records the NPCs, quests, loot and vendors you see and checks them against NorgannonDB. /ndbc export to share.
 ## Author: Maro
 ## X-License: All Rights Reserved
-## Version: 1.1.0
+## Version: 1.1.1
 ## X-Schema: 1.0
 ## Dependencies: NorgannonDB
 ## SavedVariables: NorgannonDBCollectorDB, AzerothDBCollectorDB

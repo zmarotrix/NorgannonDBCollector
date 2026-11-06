@@ -117,15 +117,19 @@ latter to `addons/NorgannonDBCollector/Corrections.lua` to use the corrections i
 <summary><b>Feeding it back into NorgannonDB</b> (maintainer)</summary>
 
 ```bash
-python tools/norgannondb/merge_collected.py "<WoW>/_forever_/WTF/Account/<ACCOUNT>/SavedVariables/NorgannonDBCollector.lua" --json build/collected/corrections.json --lua addons/NorgannonDBCollector/Corrections.lua
+python tools/norgannondb/merge_collected.py "<WoW>/_forever_/WTF/Account/<ACCOUNT>/SavedVariables/NorgannonDBCollector.lua" --json build/collected/corrections.json --into sources/collected/corrections.json
 ```
+
+Review the `--json` output, then rebuild with `tools/build_all.py`: `--into` keeps the additions in a
+file the build folds into NorgannonDB, so every player gets them (provenance `collector` for records
+only players have seen). `--lua` still writes a `Corrections.lua` that only reaches Collector users.
 
 QuestieDB stays the source of truth. A field QuestieDB provides is only changed after
 `--min-override` (default 3) observations. Data QuestieDB lacks needs `--min-add` (1). Drop chances
-need `--min-kills` (20) sources and a difference beyond 3 standard errors. Candidates below those
-thresholds are listed as "held back". The `--lua` output is applied in game through
-`NorgannonDB:RegisterCorrection` (provenance `NorgannonDBCollector`). The `--json` output is for
-review or a future build step.
+need `--min-kills` (20) looted corpses and a difference beyond 3 standard errors, and quest items
+never get one, because they only drop while you're on the quest. Candidates below those thresholds
+are listed as "held back". Files from before `--min-build` (the first released client) are skipped as
+beta data. New items get their names from the installed client's tables.
 
 </details>
 

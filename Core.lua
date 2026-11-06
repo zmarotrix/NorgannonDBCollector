@@ -70,6 +70,7 @@ function C.ItemIDFromLink(link)
   return tonumber(link:match("item:(%d+)"))
 end
 
+local CONTINENT_AREAS = { [10073] = true, [10074] = true }   -- Kalimdor, Eastern Kingdoms
 local function round2(v) return math.floor(v * 100 + 0.5) / 100 end
 
 -- areaId, x, y (percent) of the player, or nil in instances / unknown maps.
@@ -78,7 +79,8 @@ function C.PlayerPosition()
   local uiMap = C.pub(C_Map.GetBestMapForUnit("player"))
   if not uiMap then return nil end
   local area = DB.maps and DB.maps.uiMapToArea[uiMap]
-  if not area then return nil, nil, nil, uiMap end
+  -- the game can report a whole continent's map, where a zone's coordinates would be meaningless
+  if not area or CONTINENT_AREAS[area] then return nil, nil, nil, uiMap end
   local pos = C.pub(C_Map.GetPlayerMapPosition(uiMap, "player"))
   if not pos then return nil end
   local x, y = pos:GetXY()
