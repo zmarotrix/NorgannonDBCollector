@@ -1,5 +1,6 @@
 ## Interface: 16001
 ## Title: |cffe7c66cNorgannonDB|r |cff6fdc8cCollector|r
+## Category: NorgannonDB
 ## Notes: Help map Azeroth: quietly records the NPCs, quests, loot and vendors you see and checks them against NorgannonDB. /ndbc export to share.
 ## Author: Maro
 ## X-License: All Rights Reserved
@@ -7,7 +8,6 @@
 ## X-Schema: 1.0
 ## Dependencies: NorgannonDB
 ## SavedVariables: NorgannonDBCollectorDB, AzerothDBCollectorDB
-## Category: Libraries
 ## IconTexture: Interface\AddOns\NorgannonDBCollector\media\icon
 
 Core.lua
