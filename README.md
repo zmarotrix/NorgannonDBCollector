@@ -93,7 +93,7 @@ it: the Collector starts working the next time you log in.
 | Vendors: items and stock | merchant window | `npcs[id].sells`, `items[id].vendors` |
 | Services | gossip, merchant, trainer, flight map, bank, AH, stable, innkeeper frames | `npcs[id].flags` (NorgannonDB `npcFlags`) |
 | Trainers: every service, not only the ones you can learn now (the trainer's filters are turned on for the read and put back): spell, rank, level, skill and earlier ranks needed, price and your standing with the trainer | trainer window (`C_TooltipInfo.GetTrainerService` for the spell) | `trainers[npcId].teaches[CLASS or "*"][spellId]`, each with the client build |
-| What a class learns away from trainers: with a level, from a quest, from a book (talents left out) | `LEARNED_SPELL_IN_SKILL_LINE` after a level-up, turn-in or item use | `classes[CLASS].learned[spellId]` |
+| What a class learns away from trainers: with a level, from a quest (and to which race), from a book (talents left out) | `LEARNED_SPELL_IN_SKILL_LINE` after a level-up, turn-in or item use | `classes[CLASS].learned[spellId]` |
 | Level-ups: health, mana, talent points and stat gains | `PLAYER_LEVEL_UP` | `classes[CLASS].levels[race][level]` |
 | Skill caps (weapons, defense, professions) as they rise | `SKILL_LINES_CHANGED` | `classes[CLASS].skills[skillId].max[level]` |
 
@@ -132,8 +132,8 @@ python tools/norgannondb/merge_collected.py "<WoW>/_forever_/WTF/Account/<ACCOUN
 
 Class training goes the same way: a spell must be in the game client (its SpellName table), a new entry needs
 two players (or Maro), and a level or price NorgannonDB already has needs two players agreeing. The `--json`
-output also lists `levelGains`. `python -I tools/norgannondb/whatstraining_check.py` checks What's Training?
-against the client and against the confirmed training, into `docs/whatstraining-comparison.md`.
+output also lists `levelGains`. NorgannonDB's `training` (SPEC.md, schema 1.5) is what add-ons read: class →
+spell with rank, level, full price, trainers, faction, and the quest or book that teaches it.
 
 Review the `--json` output, then rebuild with `tools/build_all.py`: `--into` keeps the additions in a
 file the build folds into NorgannonDB, so every player gets them (provenance `collector` for records

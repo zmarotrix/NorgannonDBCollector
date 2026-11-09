@@ -4,9 +4,9 @@
 --
 --   sv.trainers[npcId] = { type = "class" | "profession" | "pet", reaction = n,
 --                          teaches = { [CLASS or "*"] = { [spellId] = service } }, obs = {...} }
---     service = { name, rank, level, cost, reaction, skill = { name, rank }, needs = { "Name (Rank n)" }, build }
+--     service = { name, rank, level, cost, reaction, faction, skill = { name, rank }, needs = { "Name (Rank n)" }, build }
 --   sv.classes[CLASS] = {
---     learned = { [spellId] = { level, how = "trainer"|"quest"|"item"|"level"|"other", npc, quest, item, build, n } },
+--     learned = { [spellId] = { level, how = "trainer"|"quest"|"item"|"level"|"other", npc, quest, item, race, faction, build, n } },
 --     levels  = { [RACE] = { [level] = { hp, power, talents, str, agi, sta, int, spi, build } } },
 --     skills  = { [skillId] = { name, first = level, max = { [level] = maxRank } } },
 --   }
@@ -35,6 +35,11 @@ local function player()
   local _, class = UnitClass("player")
   local _, race = UnitRace("player")
   return C.pub(class), C.pub(race), C.pub(UnitLevel("player"))
+end
+
+-- some spells are one faction's (mage portals): each sighting says whose it was
+local function faction()
+  return UnitFactionGroup and C.pub((UnitFactionGroup("player"))) or nil
 end
 
 local function classData(class)
@@ -202,6 +207,7 @@ function C.ScanTrainer()
       if spellId then
         found = found + 1
         s.reaction = reaction
+        s.faction = faction()
         rec.teaches = rec.teaches or {}
         local list = C.Sub(rec.teaches, key)
         local old = list[spellId]
@@ -248,7 +254,7 @@ function C.OnSpellLearned(spellId)
   if C.sv.settings.paused or type(spellId) ~= "number" then return end
   local t = now()
   if lastTalent and t - lastTalent < RECENT then return end   -- talents are in the talent tree, not learned
-  local class, _, level = player()
+  local class, race, level = player()
   if not class or not level then return end
   local how, npc, quest, item = "other"
   if trainerOpen then
@@ -265,7 +271,8 @@ function C.OnSpellLearned(spellId)
   local learned = C.Sub(classData(class), "learned")
   local rec = learned[spellId]
   if not rec or level < (rec.level or level + 1) or rec.how == "other" then
-    rec = { level = level, how = how, npc = npc, quest = quest, item = item, build = build(), n = rec and rec.n or 0 }
+    rec = { level = level, how = how, npc = npc, quest = quest, item = item, race = race, faction = faction(),
+      build = build(), n = rec and rec.n or 0 }
     learned[spellId] = rec
   end
   rec.n = (rec.n or 0) + 1
