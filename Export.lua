@@ -1,4 +1,5 @@
--- /ndbc export: the collected data as one copyable string, for tools/norgannondb/import_collected.py.
+-- /ndbc share (and its old name /ndbc export): the collected data as one code to copy into
+-- Discord, for tools/norgannondb/import_collected.py.
 --
 --   NDBC:1:C:<base64>   CBOR, compressed, Base64 (C_EncodingUtil, modern clients)
 --   NDBC:1:L:<base64>   Lua table literal, Base64 (fallback when C_EncodingUtil is missing)
@@ -98,18 +99,47 @@ function C.ExportString()
 end
 
 -------------------------------------------------------------------------------------------
--- Copy window
+-- Share window: the code is selected and focused, so Ctrl+C is all it takes. Players never
+-- see what the code is made of; the window talks in two plain steps.
 -------------------------------------------------------------------------------------------
+
+C.SHARE_CHANNEL = "#share-finds"
 
 local window
 
 -- suite design language: dark stone, a thin gold rule, parchment title, the addon's accent
 local ICON = "Interface\\AddOns\\NorgannonDBCollector\\media\\icon"
 local GOLD = { 0.61, 0.48, 0.24 }
+local DONE = { 0.45, 0.85, 0.5 }
+
+local function plural(n, word)
+  return n .. " " .. word .. (n == 1 and "" or "s")
+end
+
+-- Finds (what NorgannonDB has wrong or missing) first noticed since the last share.
+function C.UnsharedFinds()
+  local since = C.sv.meta.sharedSession or 0
+  local n = 0
+  for _, m in pairs(C.sv.mismatches) do
+    if (m.first or 0) > since then n = n + 1 end
+  end
+  return n
+end
+
+local function markShared()
+  C.sv.meta.lastShare = time and time() or 0
+  C.sv.meta.sharedSession = C.session
+  if window and not window.copied then
+    window.copied = true
+    window.step1:SetText("1. Copied!")
+    window.step1:SetTextColor(DONE[1], DONE[2], DONE[3])
+  end
+end
+C.MarkShared = markShared
 
 local function createWindow()
-  local f = CreateFrame("Frame", "NorgannonDBCollectorExport", UIParent, "BackdropTemplate")
-  f:SetSize(540, 228)
+  local f = CreateFrame("Frame", "NorgannonDBCollectorShare", UIParent, "BackdropTemplate")
+  f:SetSize(560, 270)
   f:SetPoint("CENTER")
   f:SetFrameStrata("DIALOG")
   f:SetMovable(true)
@@ -130,12 +160,12 @@ local function createWindow()
 
   f.kicker = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.kicker:SetPoint("TOPLEFT", f.icon, "TOPRIGHT", 10, -1)
-  f.kicker:SetText("NORGANNONDB")
+  f.kicker:SetText("NORGANNONDB COLLECTOR")
   f.kicker:SetTextColor(0.91, 0.78, 0.42)
 
   f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
   f.title:SetPoint("TOPLEFT", f.kicker, "BOTTOMLEFT", 0, -2)
-  f.title:SetText("Collector")
+  f.title:SetText("Share your finds")
   f.title:SetTextColor(0.97, 0.91, 0.75)
 
   f.x = CreateFrame("Button", nil, f, "UIPanelCloseButton")
@@ -147,29 +177,36 @@ local function createWindow()
   f.rule:SetPoint("TOPLEFT", 10, -52)
   f.rule:SetPoint("TOPRIGHT", -10, -52)
 
-  f.thanks = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  f.thanks:SetPoint("TOPLEFT", 16, -64)
-  f.thanks:SetText("Thank you for helping map Azeroth.")
-  f.thanks:SetTextColor(C.ACCENT_RGB[1], C.ACCENT_RGB[2], C.ACCENT_RGB[3])
-
-  f.stats = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  f.stats:SetPoint("TOPLEFT", f.thanks, "BOTTOMLEFT", 0, -6)
-  f.stats:SetWidth(508)
+  f.stats = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  f.stats:SetPoint("TOPLEFT", 18, -64)
+  f.stats:SetWidth(524)
   f.stats:SetJustifyH("LEFT")
+  f.stats:SetTextColor(C.ACCENT_RGB[1], C.ACCENT_RGB[2], C.ACCENT_RGB[3])
 
-  f.help = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  f.help:SetPoint("TOPLEFT", f.stats, "BOTTOMLEFT", 0, -8)
-  f.help:SetWidth(508)
-  f.help:SetJustifyH("LEFT")
-  f.help:SetTextColor(0.78, 0.74, 0.66)
+  f.step1 = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightHuge")
+  f.step1:SetPoint("TOPLEFT", f.stats, "BOTTOMLEFT", 0, -14)
+  f.step1:SetJustifyH("LEFT")
 
+  f.step2 = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+  f.step2:SetPoint("TOPLEFT", f.step1, "BOTTOMLEFT", 0, -10)
+  f.step2:SetWidth(524)
+  f.step2:SetJustifyH("LEFT")
+
+  f.note = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  f.note:SetPoint("TOPLEFT", f.step2, "BOTTOMLEFT", 0, -10)
+  f.note:SetWidth(524)
+  f.note:SetJustifyH("LEFT")
+  f.note:SetTextColor(0.78, 0.74, 0.66)
+  f.note:SetText("No character names are in it. Share again whenever you like: the newest one replaces your last.")
+
+  -- the code itself: small and dim, always selected; typing puts it back
   f.box = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
-  f.box:SetPoint("BOTTOMLEFT", 22, 46)
-  f.box:SetPoint("BOTTOMRIGHT", -16, 46)
-  f.box:SetHeight(24)
+  f.box:SetPoint("BOTTOMLEFT", 24, 48)
+  f.box:SetPoint("BOTTOMRIGHT", -18, 48)
+  f.box:SetHeight(22)
   f.box:SetAutoFocus(false)
   f.box:SetMaxLetters(0)
-  -- read-only: typing restores the export and keeps it selected for Ctrl+C
+  f.box:SetTextColor(0.6, 0.57, 0.5)
   f.box:SetScript("OnTextChanged", function(self, userInput)
     if userInput and window.text then
       self:SetText(window.text)
@@ -178,42 +215,63 @@ local function createWindow()
   end)
   f.box:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
   f.box:SetScript("OnEscapePressed", function() f:Hide() end)
+  f.box:SetScript("OnKeyDown", function(_, key)
+    if (key == "C" or key == "c") and IsControlKeyDown and IsControlKeyDown() then markShared() end
+  end)
+  -- a click anywhere on the window selects the code again
+  f:SetScript("OnMouseDown", function() f.box:SetFocus(); f.box:HighlightText() end)
 
   f.close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  f.close:SetSize(90, 22)
+  f.close:SetSize(210, 26)
   f.close:SetPoint("BOTTOMRIGHT", -14, 12)
-  f.close:SetText(CLOSE or "Close")
-  f.close:SetScript("OnClick", function() f:Hide() end)
+  f.close:SetText("Copied? You're done here")
+  f.close:SetScript("OnClick", function() markShared(); f:Hide() end)
 
-  f.size = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  f.size:SetPoint("BOTTOMLEFT", 16, 18)
-
-  table.insert(UISpecialFrames, "NorgannonDBCollectorExport")
+  table.insert(UISpecialFrames, "NorgannonDBCollectorShare")
   return f
 end
 
-local function plural(n, word)
-  return n .. " " .. word .. (n == 1 and "" or "s")
-end
-
-function C.ShowExport()
+function C.ShowShare()
   local text = C.ExportString()
-  C.lastExport = text
-  C.sv.meta.lastExport = time and time() or 0
   window = window or createWindow()
+  C.shareWindow = window
   window.text = text
+  window.copied = nil
   local s = C.Stats()
-  window.stats:SetText(string.format("You have recorded %s, %s, %s and %s.", plural(s.npcs, "NPC"),
-    plural(s.objects, "object"), plural(s.quests, "quest"), plural(s.items, "item")))
-  window.help:SetText("Press Ctrl+C to copy the line below, then paste it into a text file or a message for the "
-    .. "NorgannonDB maintainer. It contains no character names. Exports include everything so far, so send a fresh one now and then.")
-  local method = text:match("^%a+:%d+:(%a):")
-  window.size:SetText(string.format("%.1f KB, %s", #text / 1024, method == "C" and "compressed" or "plain"))
+  local new = C.UnsharedFinds()
+  if s.mismatches == 0 then
+    window.stats:SetText("Nothing new found yet, but what you've seen still helps.")
+  elseif new > 0 and new < s.mismatches then
+    window.stats:SetText(string.format("You've found %s the database didn't know, %d of them since you last shared.",
+      plural(s.mismatches, "thing"), new))
+  else
+    window.stats:SetText(string.format("You've found %s the database didn't know.", plural(s.mismatches, "thing")))
+  end
+  window.step1:SetText("1. Press Ctrl+C")
+  window.step1:SetTextColor(1, 1, 1)
+  window.step2:SetText("2. In Discord, open " .. C.SHARE_CHANNEL .. " and press Ctrl+V, then Enter")
   window:Show()
   window.box:SetText(text)
   window.box:SetFocus()
-  window.box:HighlightText()
   window.box:SetCursorPosition(0)
   window.box:HighlightText()
   return text
+end
+C.ShowExport = C.ShowShare
+
+-------------------------------------------------------------------------------------------
+-- Reminder: at login, at most once a day, when something new hasn't been shared yet
+-------------------------------------------------------------------------------------------
+
+local DAY = 24 * 60 * 60
+
+function C.ShareReminder()
+  local settings = C.sv.settings
+  if settings.shareReminder == false or not settings.chat then return end
+  local n = C.UnsharedFinds()
+  local nowT = time and time() or 0
+  if n == 0 or nowT - (settings.lastShareReminder or 0) < DAY then return end
+  settings.lastShareReminder = nowT
+  C.Print(string.format("Found %s. Type /ndbc share to send %s in.", plural(n, "new thing"), n == 1 and "it" or "them"))
+  return n
 end

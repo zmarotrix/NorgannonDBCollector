@@ -630,6 +630,7 @@ end
 
 handlers.PLAYER_LOGIN = function()
   if C.ShowLastSummary then C.ShowLastSummary() end
+  if C.ShareReminder then C.ShareReminder() end
   if C.apiWatchRetired then
     C.Print("the API watch is now a separate add-on for developers: https://zmarotrix.github.io/norgannon/developers/")
     C.apiWatchRetired = nil

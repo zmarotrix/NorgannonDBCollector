@@ -99,7 +99,8 @@ local HELP = {
   "/ndbc pause - stop/resume collecting",
   "/ndbc corrections on|off - apply merged corrections at load (now: %s, %d applied)",
   "/ndbc reset - delete all collected data",
-  "/ndbc export - copy your collected data to send to the NorgannonDB maintainer",
+  "/ndbc share - send what you found in (copy, then paste in Discord)",
+  "/ndbc reminder on|off - say once a day when you have something new to share (now: %s)",
   "/ndbc debug [show [n] | chat | clear] - log what the collector sees (saved with your data)",
 }
 
@@ -128,9 +129,11 @@ SlashCmdList["NORGANNONDBCOLLECTOR"] = function(msg)
       settings.debug = not settings.debug
       C.Print("debug log " .. (settings.debug and "on: /ndbc debug show [n], /ndbc debug chat" or "off"))
     end
-  elseif cmd == "export" then
-    local text = C.ShowExport()
-    C.Print(string.format("export ready (%.1f KB): press Ctrl+C in the window to copy it", #text / 1024))
+  elseif cmd == "share" or cmd == "export" then
+    C.ShowShare()
+  elseif cmd == "reminder" then
+    settings.shareReminder = a ~= "off"
+    C.Print("share reminder " .. (settings.shareReminder and "on" or "off"))
   elseif cmd == "stats" then
     C.Print(summaryLine(C.Stats()))
   elseif cmd == "verbose" then
@@ -150,7 +153,8 @@ SlashCmdList["NORGANNONDBCOLLECTOR"] = function(msg)
     C.Print("collected data cleared")
   else
     for i, line in ipairs(HELP) do
-      if i == 5 then line = line:format(settings.applyCorrections and "on" or "off", C.appliedCorrections or 0) end
+      if i == 5 then line = line:format(settings.applyCorrections and "on" or "off", C.appliedCorrections or 0)
+      elseif i == 8 then line = line:format(settings.shareReminder == false and "off" or "on") end
       C.Print(line)
     end
   end

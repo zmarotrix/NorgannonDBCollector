@@ -25,35 +25,35 @@ fills those gaps from real play, and everyone who uses the suite benefits.
 
 - **Nothing to do.** It works quietly in the background, with no windows or prompts while you
   play, and it saves its work until after combat so it never slows a fight.
-- **Private.** No character names and no other players are ever recorded or exported.
+- **Private.** No character names and no other players are ever recorded or shared.
 - **Rewarding.** At each login it shows what your last session found, including things
   NorgannonDB had wrong or didn't know.
 
 ## Sharing what you found
 
-1. Log out or type **`/reload`**, so the game saves your data.
-2. Open the **[share page](https://zmarotrix.github.io/norgannon/share.html)** and drop in
-   `WTF\Account\<your account>\SavedVariables\NorgannonDBCollector.lua`. It's read in your browser.
-3. Choose to stay anonymous or to show a name on the
-   **[leaderboard](https://zmarotrix.github.io/norgannon/leaderboard.html)**, then post the file it makes with the
-   **Share my finds** form here on GitHub.
+1. Type **`/ndbc share`** in game. A window opens with your finds ready to copy.
+2. Press **Ctrl+C**.
+3. In our **[Discord](https://discord.gg/mvnuGyfMxB)**, open **#share-finds**, press **Ctrl+V**, then **Enter**.
+   It's long, so Discord turns it into a file. That's fine.
 
-Each file holds everything you've recorded so far, and a new one replaces your last, so share again whenever you
-like. Every file is checked when it arrives, and a change to the game data needs more than one player behind it
+Each share holds everything you've recorded so far, and a new one replaces your last, so share again whenever you
+like. At login the Collector says, at most once a day, when you have something new (`/ndbc reminder off` stops
+that). Every share is checked when it arrives, and a change to the game data needs more than one player behind it
 before it goes into an update. By sharing you let your data be included in NorgannonDB, which is published under
-GPL-3.0. The file contains no character names. (`/ndbc export` still gives you the same data as one line of text.)
+GPL-3.0. It contains no character names.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `/ndbc export` | open the export window |
+| `/ndbc share` | copy your finds to paste in Discord (`/ndbc export` still works) |
+| `/ndbc reminder on\|off` | say once a day at login when you have something new to share |
 | `/ndbc stats` | what you've recorded so far |
 | `/ndbc report [type] [n]` | what you found that NorgannonDB has wrong or missing |
 | `/ndbc verbose` | announce each new finding in chat |
 | `/ndbc pause` | stop or resume collecting |
 | `/ndbc corrections on\|off` | apply the merged corrections that ship with the add-on |
-| `/ndbc debug [show [n] \| chat \| clear]` | log what it sees and why it skips things (never exported) |
+| `/ndbc debug [show [n] \| chat \| clear]` | log what it sees and why it skips things (never shared) |
 | `/ndbc reset` | delete everything collected |
 
 ## Getting started
