@@ -630,6 +630,7 @@ end
 
 handlers.PLAYER_LOGIN = function()
   if C.ShowLastSummary then C.ShowLastSummary() end
+  if C.ApiWatchInit then C.ApiWatchInit() end
 end
 
 handlers.PLAYER_LOGOUT = function()

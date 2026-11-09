@@ -31,13 +31,25 @@ fills those gaps from real play, and everyone who uses the suite benefits.
 
 ## Sharing what you found
 
-1. Type **`/ndbc export`**. A window opens with your data on one line, already selected.
-2. Press **Ctrl+C**.
-3. Paste it into a message or a text file for the NorgannonDB maintainer.
+1. Log out or type **`/reload`**, so the game saves your data.
+2. Open the **[share page](https://zmarotrix.github.io/norgannon/share.html)** and drop in
+   `WTF\Account\<your account>\SavedVariables\NorgannonDBCollector.lua`. It's read in your browser.
+3. Choose to stay anonymous or to show a name on the
+   **[leaderboard](https://zmarotrix.github.io/norgannon/leaderboard.html)**, then post the file it makes with the
+   **Share my finds** form here on GitHub.
 
-Each export holds everything you've recorded so far, so a fresh one every now and then is all it
-takes. By sending your data you let it be included in NorgannonDB, which is published under
-GPL-3.0. Exports contain no character names.
+Each file holds everything you've recorded so far, and a new one replaces your last, so share again whenever you
+like. Every file is checked when it arrives, and a change to the game data needs more than one player behind it
+before it goes into an update. By sharing you let your data be included in NorgannonDB, which is published under
+GPL-3.0. The file contains no character names. (`/ndbc export` still gives you the same data as one line of text.)
+
+### Optional: help document the game for add-on authors
+
+**`/ndbc api on`** (then `/reload`) also notes how the game's own functions behave in places one person can't
+reach alone: dungeons, raids, boss fights and battlegrounds. It records only the kind of answer each function gives
+(a number, a hidden value, an error), never the answer itself, and works a few calls at a time so you won't notice
+it. What it finds goes to the [Forever API reference](https://zmarotrix.github.io/norgannon/api/index.html). It's
+off unless you switch it on; `/ndbc api off` stops it.
 
 ## Commands
 
@@ -50,6 +62,7 @@ GPL-3.0. Exports contain no character names.
 | `/ndbc pause` | stop or resume collecting |
 | `/ndbc corrections on\|off` | apply the merged corrections that ship with the add-on |
 | `/ndbc debug [show [n] \| chat \| clear]` | log what it sees and why it skips things (never exported) |
+| `/ndbc api on\|off` | also help document the game's functions for add-on authors (off by default) |
 | `/ndbc reset` | delete everything collected |
 
 ## Getting started
