@@ -98,7 +98,6 @@ local HELP = {
   "/ndbc verbose - announce each new mismatch in chat",
   "/ndbc pause - stop/resume collecting",
   "/ndbc corrections on|off - apply merged corrections at load (now: %s, %d applied)",
-  "/ndbc api on|off - also help document the game for add-on authors (now: %s)",
   "/ndbc reset - delete all collected data",
   "/ndbc export - copy your collected data to send to the NorgannonDB maintainer",
   "/ndbc debug [show [n] | chat | clear] - log what the collector sees (saved with your data)",
@@ -132,8 +131,6 @@ SlashCmdList["NORGANNONDBCOLLECTOR"] = function(msg)
   elseif cmd == "export" then
     local text = C.ShowExport()
     C.Print(string.format("export ready (%.1f KB): press Ctrl+C in the window to copy it", #text / 1024))
-  elseif cmd == "api" then
-    C.ApiWatchCommand(a and a:lower())
   elseif cmd == "stats" then
     C.Print(summaryLine(C.Stats()))
   elseif cmd == "verbose" then
@@ -153,8 +150,7 @@ SlashCmdList["NORGANNONDBCOLLECTOR"] = function(msg)
     C.Print("collected data cleared")
   else
     for i, line in ipairs(HELP) do
-      if i == 5 then line = line:format(settings.applyCorrections and "on" or "off", C.appliedCorrections or 0)
-      elseif i == 6 then line = line:format(settings.apiWatch and "on" or "off") end
+      if i == 5 then line = line:format(settings.applyCorrections and "on" or "off", C.appliedCorrections or 0) end
       C.Print(line)
     end
   end

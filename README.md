@@ -43,14 +43,6 @@ like. Every file is checked when it arrives, and a change to the game data needs
 before it goes into an update. By sharing you let your data be included in NorgannonDB, which is published under
 GPL-3.0. The file contains no character names. (`/ndbc export` still gives you the same data as one line of text.)
 
-### Optional: help document the game for add-on authors
-
-**`/ndbc api on`** (then `/reload`) also notes how the game's own functions behave in places one person can't
-reach alone: dungeons, raids, boss fights and battlegrounds. It records only the kind of answer each function gives
-(a number, a hidden value, an error), never the answer itself, and works a few calls at a time so you won't notice
-it. What it finds goes to the [Forever API reference](https://zmarotrix.github.io/norgannon/api/index.html). It's
-off unless you switch it on; `/ndbc api off` stops it.
-
 ## Commands
 
 | Command | What it does |
@@ -62,7 +54,6 @@ off unless you switch it on; `/ndbc api off` stops it.
 | `/ndbc pause` | stop or resume collecting |
 | `/ndbc corrections on\|off` | apply the merged corrections that ship with the add-on |
 | `/ndbc debug [show [n] \| chat \| clear]` | log what it sees and why it skips things (never exported) |
-| `/ndbc api on\|off` | also help document the game's functions for add-on authors (off by default) |
 | `/ndbc reset` | delete everything collected |
 
 ## Getting started

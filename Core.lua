@@ -116,6 +116,10 @@ function C.InitStore()
     _G.NorgannonDBCollectorDB = sv
   end
   sv.settings = sv.settings or {}
+  -- 1.4.0: the API watch left for a developer add-on; drop what it saved, once
+  if sv.settings.apiWatch then C.apiWatchRetired = true end
+  sv.settings.apiWatch = nil
+  sv.api = nil
   if sv.settings.applyCorrections == nil then sv.settings.applyCorrections = true end
   if sv.settings.chat == nil then sv.settings.chat = true end
   sv.meta = sv.meta or { sessions = 0 }
