@@ -83,6 +83,7 @@ it: the Collector starts working the next time you log in.
 | Kills and loot | `PARTY_KILL` (or XP message), loot window sources | `obs.kills`, `obs.looted`, `obs.loot[itemId]` → `drops` chances at logout |
 | Pickpocket / skinning / container loot | spell cast before the loot window; opened bag item | `obs.pickpocketLoot`, `obs.skinningLoot`, `items[id].obs.loot` |
 | Quests: giver, ender, objectives (text, type, required count), rewards | quest dialogs + quest log | `quests[id].starters/finishers/objectives/rewards` |
+| Quest chains: the NPC offers the next quest straight after a turn-in (no quest menu in between, no level-up); seeing a quest offered while a supposed prerequisite isn't done rules that one out | quest dialogs, gossip and greeting menus, completed quests | `quests[id].obs.after[prevId]`, `obs.notAfter[prevId]` |
 | Vendors: items and stock | merchant window | `npcs[id].sells`, `items[id].vendors` |
 | Services | gossip, merchant, trainer, flight map, bank, AH, stable, innkeeper frames | `npcs[id].flags` (NorgannonDB `npcFlags`) |
 
@@ -127,7 +128,10 @@ QuestieDB stays the source of truth. A field QuestieDB provides is only changed 
 `--min-override` (default 3) observations. Data QuestieDB lacks needs `--min-add` (1). Drop chances
 need `--min-kills` (20) looted corpses and a difference beyond 3 standard errors, and quest items
 never get one, because they only drop while you're on the quest. Candidates below those thresholds
-are listed as "held back". Files from before `--min-build` (the first released client) are skipped as
+are listed as "held back". A quest offered straight after another gets that one as a prerequisite
+(`prerequisites.any`) after `--min-chain` (1) sightings, but only when QuestieDB gives it no
+prerequisites at all. One sighting of it offered while that quest wasn't done keeps the pair out, and
+takes it back out of `corrections.json` if an earlier run added it. Files from before `--min-build` (the first released client) are skipped as
 beta data. New items get their names from the installed client's tables.
 
 </details>

@@ -17,6 +17,7 @@ C.MISMATCH_LABELS = {
   vendorItem = "vendor sells item not in NorgannonDB",
   drop = "loot not in NorgannonDB drops",
   flag = "NPC service missing from flags",
+  prerequisite = "follows a quest that isn't among its prerequisites",
 }
 
 -- Records one finding; returns the mismatch entry.
@@ -99,6 +100,17 @@ function C.CheckQuestActor(questId, role, kind, id)
   local name = C.sv[kind] and C.sv[kind][id] and C.sv[kind][id].name
   C.Flag(role == "starters" and "starter" or "finisher", "quests", questId,
     string.format("%s %d (%s)", kind, id, tostring(name or "?")), kind .. id)
+end
+
+-- The NPC offered questId straight after preId was turned in.
+function C.CheckChain(questId, preId)
+  local quest = DB.quests[questId]
+  if not quest then return end
+  local known = quest.prerequisites or {}
+  if contains(known.all, preId) or contains(known.any, preId) then return end
+  local pre = DB.quests[preId] or C.sv.quests[preId]
+  C.Flag("prerequisite", "quests", questId,
+    string.format("after quest %d (%s)", preId, tostring(pre and pre.name or "?")), preId)
 end
 
 -- name -> ids index for one kind, built on first use

@@ -17,6 +17,8 @@ local guidByName = {}      -- unit name -> last creature guid seen with it (kill
 local pendingKills = {}
 local pendingObjectives = {}
 local questDialog, turnInDialog
+local lastTurnIn          -- { id, guid, t, level } of the last turn-in, for quest chains
+local menuQuests = {}      -- npc guid -> { [questId] = true } offered in its last quest menu
 local lastSpell, lastContainer, lastObjectTip
 local objectNames = {}
 
@@ -212,6 +214,81 @@ local function questRecord(questId)
   return C.Record("quests", questId)
 end
 
+-------------------------------------------------------------------------------------------
+-- Quest chains. When a quest is turned in and the same NPC at once shows the next quest
+-- (no quest menu in between), the server is offering the chain's next step, so the quest
+-- just turned in is a prerequisite of it. A quest that was already in that NPC's menu
+-- before the turn-in, or that arrives with a level-up, proves nothing.
+-------------------------------------------------------------------------------------------
+
+local CHAIN_WINDOW = 5
+
+local function questDone(questId)
+  if not (C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted) then return nil end
+  local ok, done = pcall(C_QuestLog.IsQuestFlaggedCompleted, questId)
+  if ok then return C.pub(done) and true or false end
+end
+
+-- The quests the NPC's quest menu offers right now.
+local function readMenu()
+  local guid = UnitGUID and C.pub(UnitGUID("npc"))
+  if not guid then return end
+  local offered = {}
+  if C_GossipInfo and C_GossipInfo.GetAvailableQuests then
+    for _, q in ipairs(C.pubTable(C_GossipInfo.GetAvailableQuests()) or {}) do
+      q = C.pubTable(q)
+      local id = q and C.pub(q.questID)
+      if id then offered[id] = true end
+    end
+  end
+  if GetNumAvailableQuests and GetAvailableQuestInfo then
+    for i = 1, C.pub(GetNumAvailableQuests()) or 0 do
+      local id = C.pub(select(5, GetAvailableQuestInfo(i)))
+      if id then offered[id] = true end
+    end
+  end
+  menuQuests[guid] = offered
+  if lastTurnIn then lastTurnIn.menu = true end
+end
+C.ReadQuestMenu = readMenu
+
+-- Quests this one might follow: what the Collector saw and what NorgannonDB lists.
+local function chainCandidates(questId)
+  local out = {}
+  local rec = C.sv.quests[questId]
+  for pre in pairs(rec and rec.obs.after or {}) do out[pre] = true end
+  local known = DB.quests[questId] and DB.quests[questId].prerequisites
+  for _, key in ipairs({ "all", "any" }) do
+    for _, pre in ipairs(known and known[key] or {}) do out[pre] = true end
+  end
+  return out
+end
+
+-- Seeing a quest offered while a supposed prerequisite isn't done rules that one out.
+local function checkOffered(questId)
+  for pre in pairs(chainCandidates(questId)) do
+    local justDone = lastTurnIn and lastTurnIn.id == pre and now() - lastTurnIn.t <= CHAIN_WINDOW
+    if questDone(pre) == false and not justDone then
+      C.Inc(C.Sub(questRecord(questId).obs, "notAfter"), pre)
+      C.Log("quest %d offered before %d was done: not a prerequisite", questId, pre)
+    end
+  end
+end
+
+-- The NPC showed questId's details: is it the next step of the chain just turned in?
+local function checkChain(questId, guid)
+  local prev = lastTurnIn
+  if not prev or prev.id == questId or now() - prev.t > CHAIN_WINDOW then return end
+  if prev.menu or not guid or guid ~= prev.guid then return end
+  if (menuQuests[guid] or {})[questId] then return end
+  local level = UnitLevel and C.pub(UnitLevel("player"))
+  if level and prev.level and level ~= prev.level then return end
+  local quest = questRecord(questId)
+  C.Inc(C.Sub(quest.obs, "after"), prev.id)
+  C.Log("quest %d offered right after %d was turned in: chain", questId, prev.id)
+  C.CheckChain(questId, prev.id)
+end
+
 function C.OnQuestDetail()
   if not C.CanCollect() then return end
   local questId = GetQuestID and C.pub(GetQuestID())
@@ -220,6 +297,8 @@ function C.OnQuestDetail()
   local kind, id = dialogActor()
   if kind == "npcs" then C.Interact("QUEST_GIVER") end
   questDialog = { id = questId, kind = kind, actor = id, title = GetTitleText and C.pub(GetTitleText()) }
+  if kind ~= "items" then checkChain(questId, UnitGUID and C.pub(UnitGUID("npc"))) end
+  checkOffered(questId)
 end
 
 -- Splits an objective line into its subject using the client's own objective formats.
@@ -288,6 +367,7 @@ function C.OnQuestAccepted(a, b)
   local faction = UnitFactionGroup and C.pub(UnitFactionGroup("player"))
   if faction then C.Inc(C.Sub(quest.obs, "factions"), faction) end
   C.CheckQuest(questId)
+  if not (questDialog and questDialog.id == questId) then checkOffered(questId) end
   if questDialog and questDialog.id == questId and questDialog.kind then
     addActor(quest, questId, "starters", questDialog.kind, questDialog.actor)
     C.CheckQuestActor(questId, "starters", questDialog.kind, questDialog.actor)
@@ -330,7 +410,8 @@ function C.OnQuestComplete()
       if not found then table.insert(rec.rewardOf, questId) end
     end
   end
-  turnInDialog = { id = questId, kind = kind, actor = id }
+  turnInDialog = { id = questId, kind = kind, actor = id, guid = UnitGUID and C.pub(UnitGUID("npc")),
+    level = UnitLevel and C.pub(UnitLevel("player")) }
 end
 
 function C.OnQuestTurnedIn(questId, xp)
@@ -346,6 +427,11 @@ function C.OnQuestTurnedIn(questId, xp)
   if turnInDialog and turnInDialog.id == questId and turnInDialog.kind and turnInDialog.kind ~= "items" then
     addActor(quest, questId, "finishers", turnInDialog.kind, turnInDialog.actor)
     C.CheckQuestActor(questId, "finishers", turnInDialog.kind, turnInDialog.actor)
+  end
+  if turnInDialog and turnInDialog.id == questId and turnInDialog.guid then
+    lastTurnIn = { id = questId, guid = turnInDialog.guid, t = now(), level = turnInDialog.level }
+  else
+    lastTurnIn = nil
   end
   turnInDialog = nil
 end
@@ -601,6 +687,14 @@ end
 
 for event, flag in pairs(SERVICE_EVENTS) do
   handlers[event] = function() C.Interact(flag) end
+end
+-- quest menus: remember what they offer, for quest chains
+for _, event in ipairs({ "GOSSIP_SHOW", "QUEST_GREETING" }) do
+  local service = handlers[event]
+  handlers[event] = function(...)
+    service(...)
+    if C.CanCollect() then readMenu() end
+  end
 end
 
 local QUIET = { UPDATE_MOUSEOVER_UNIT = true, PLAYER_TARGET_CHANGED = true, QUEST_LOG_UPDATE = true,
