@@ -18,6 +18,12 @@ C.MISMATCH_LABELS = {
   drop = "loot not in NorgannonDB drops",
   flag = "NPC service missing from flags",
   prerequisite = "follows a quest that isn't among its prerequisites",
+  trainer = "trainer teaches something NorgannonDB doesn't list for them",
+  trainingMissing = "class spell missing from NorgannonDB's training list",
+  trainingLevel = "learned at a different level than NorgannonDB says",
+  trainingCost = "trainer price differs from NorgannonDB",
+  trainingSkill = "skill needed differs from NorgannonDB",
+  trainingChanged = "changed since the Collector last saw it",
 }
 
 -- Records one finding; returns the mismatch entry.
@@ -210,5 +216,83 @@ function C.CheckFlag(npcId, flagName)
   local flag = DB.enums and DB.enums.npcFlags and DB.enums.npcFlags[flagName]
   if npc and flag and not (npc.flags and npc.flags > 0 and DB.HasFlag(npc.flags, flag)) then
     C.Flag("flag", "npcs", npcId, flagName, flagName)
+  end
+end
+
+-------------------------------------------------------------------------------------------
+-- Training: trainers' lists against NorgannonDB (recipes for professions, training for
+-- classes), and against what this Collector saw on an earlier client build
+-------------------------------------------------------------------------------------------
+
+local function serviceName(s)
+  return s.rank and string.format("%s (Rank %d)", tostring(s.name), s.rank) or tostring(s.name)
+end
+
+-- The same service seen again: a level or a full price that moved is a change in the game.
+function C.CheckServiceChange(npcId, class, spellId, old, s)
+  local was, is = C.BaseCost(old.cost, old.reaction), C.BaseCost(s.cost, s.reaction)
+  local changes = {}
+  if old.level and s.level and old.level ~= s.level then
+    changes[#changes + 1] = string.format("level %d -> %d", old.level, s.level)
+  end
+  if type(was) == "number" and type(is) == "number" and was ~= is then
+    changes[#changes + 1] = string.format("costs %s -> %s", C.Money(was), C.Money(is))
+  end
+  if #changes == 0 then return end
+  local builds = old.build ~= s.build and string.format(" (build %s -> %s)", tostring(old.build), tostring(s.build)) or ""
+  C.Flag("trainingChanged", "npcs", npcId, string.format("%s %s: %s%s", class, serviceName(s), table.concat(changes, ", "), builds), spellId)
+end
+
+local function listed(list, value)
+  if type(list) ~= "table" then return false end
+  if list[value] ~= nil then return true end
+  for _, v in ipairs(list) do if v == value then return true end end
+  return false
+end
+
+function C.CheckService(npcId, tType, class, spellId, s)
+  local base = C.BaseCost(s.cost, s.reaction)
+  if tType == "profession" then
+    local recipe = DB.recipes and DB.recipes[spellId]
+    if not recipe then return end
+    local price = recipe.trainers and recipe.trainers[npcId]
+    if price == nil then
+      C.Flag("trainer", "npcs", npcId, "teaches " .. serviceName(s), spellId)
+    elseif type(base) == "number" and base ~= price then
+      C.Flag("trainingCost", "npcs", npcId, string.format("%s costs %s, NorgannonDB says %s", serviceName(s), C.Money(base), C.Money(price)), spellId)
+    end
+    if recipe.learn and s.skill and s.skill[2] ~= recipe.learn then
+      C.Flag("trainingSkill", "npcs", npcId, string.format("%s needs %s %d, NorgannonDB says %d", serviceName(s), tostring(s.skill[1]), s.skill[2], recipe.learn), spellId)
+    end
+    return
+  end
+  if not DB.training or next(DB.training) == nil then
+    -- nothing to compare with yet (NorgannonDB before 1.5, or no class confirmed): one find per class trainer says its list is worth sharing
+    return C.Flag("trainingMissing", "npcs", npcId, class .. " trainer's spells aren't in NorgannonDB yet", class)
+  end
+  local entry = DB.training[class] and DB.training[class][spellId]
+  if not entry then
+    return C.Flag("trainingMissing", "training", spellId, string.format("%s %s, level %s, %s", class, serviceName(s), tostring(s.level), C.Money(base)), class)
+  end
+  if s.level and entry.level and s.level ~= entry.level then
+    C.Flag("trainingLevel", "training", spellId, string.format("%s %s: level %d, NorgannonDB says %d", class, serviceName(s), s.level, entry.level), class)
+  end
+  if type(base) == "number" and entry.cost and base ~= entry.cost then
+    C.Flag("trainingCost", "training", spellId, string.format("%s %s costs %s, NorgannonDB says %s", class, serviceName(s), C.Money(base), C.Money(entry.cost)), class)
+  end
+  if not listed(entry.trainers, npcId) then
+    C.Flag("trainer", "npcs", npcId, string.format("teaches %s %s", class, serviceName(s)), spellId)
+  end
+end
+
+-- Spells learned away from a trainer (quests, books, levels): checked once NorgannonDB has the class.
+function C.CheckLearned(class, spellId, rec)
+  if rec.how == "trainer" or rec.how == "other" or not DB.training or not DB.training[class] then return end
+  local entry = DB.training[class][spellId]
+  local how = rec.how == "quest" and ("from quest " .. tostring(rec.quest)) or rec.how == "item" and ("from item " .. tostring(rec.item)) or "on levelling"
+  if not entry then
+    C.Flag("trainingMissing", "training", spellId, string.format("%s spell learned at level %d %s", class, rec.level, how), class)
+  elseif entry.level and entry.level ~= rec.level and rec.how == "level" then
+    C.Flag("trainingLevel", "training", spellId, string.format("%s spell learned at level %d, NorgannonDB says %d", class, rec.level, entry.level), class)
   end
 end

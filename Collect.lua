@@ -619,7 +619,7 @@ handlers.ADDON_LOADED = function(name)
   if C_Container and C_Container.UseContainerItem and C_Container.GetContainerItemID then
     hooksecurefunc(C_Container, "UseContainerItem", function(bag, slot)
       local id = C.pub(C_Container.GetContainerItemID(bag, slot))
-      if id then lastContainer = { id = id, t = now() } end
+      if id then lastContainer = { id = id, t = now() }; C.lastContainer = lastContainer end
     end)
   end
   -- the combat log may be unavailable to addons on this client; kills then come from XP gains

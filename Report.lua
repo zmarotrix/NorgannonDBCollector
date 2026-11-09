@@ -28,7 +28,7 @@ function C.Stats()
   local sv = C.sv
   local s = {
     npcs = count(sv.npcs), objects = count(sv.objects), quests = count(sv.quests), items = count(sv.items),
-    instances = count(sv.instances),
+    instances = count(sv.instances), trainers = count(sv.trainers),
     mismatches = count(sv.mismatches), newMismatches = 0, byType = {},
   }
   for _, m in pairs(sv.mismatches) do
@@ -39,8 +39,8 @@ function C.Stats()
 end
 
 local function summaryLine(s)
-  return string.format("%d npcs, %d objects, %d quests, %d items recorded; %d mismatches (%d new this session)",
-    s.npcs, s.objects, s.quests, s.items, s.mismatches, s.newMismatches)
+  return string.format("%d npcs, %d objects, %d quests, %d items, %d trainers recorded; %d mismatches (%d new this session)",
+    s.npcs, s.objects, s.quests, s.items, s.trainers, s.mismatches, s.newMismatches)
 end
 
 -- Stored on logout (chat is not visible then) and shown at the next login.
