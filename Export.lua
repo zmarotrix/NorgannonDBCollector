@@ -251,7 +251,7 @@ function C.ShowShare()
   end
   window.step1:SetText("1. Press Ctrl+C")
   window.step1:SetTextColor(1, 1, 1)
-  window.step2:SetText("2. In Discord, open " .. C.SHARE_CHANNEL .. " and press Ctrl+V, then Enter")
+  window.step2:SetText("2. In the Norgannon Discord, open " .. C.SHARE_CHANNEL .. ", press Ctrl+V, then Enter")
   window:Show()
   window.box:SetText(text)
   window.box:SetFocus()

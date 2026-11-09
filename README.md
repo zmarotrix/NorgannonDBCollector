@@ -33,7 +33,7 @@ fills those gaps from real play, and everyone who uses the suite benefits.
 
 1. Type **`/ndbc share`** in game. A window opens with your finds ready to copy.
 2. Press **Ctrl+C**.
-3. In our **[Discord](https://discord.gg/mvnuGyfMxB)**, open **#share-finds**, press **Ctrl+V**, then **Enter**.
+3. In the **[Norgannon Discord](https://discord.gg/mvnuGyfMxB)**, open **#share-finds**, press **Ctrl+V**, then **Enter**.
    It's long, so Discord turns it into a file. That's fine.
 
 Each share holds everything you've recorded so far, and a new one replaces your last, so share again whenever you
