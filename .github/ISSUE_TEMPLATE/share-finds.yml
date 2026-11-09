@@ -1,0 +1,23 @@
+name: Share my finds
+description: Send what your Collector found. Make the file first at https://zmarotrix.github.io/norgannon/share.html
+title: "Finds"
+labels: ["finds"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping. Make your finds file on the [share page](https://zmarotrix.github.io/norgannon/share.html) first.
+        That's also where you choose whether your name goes on the leaderboard.
+  - type: textarea
+    id: file
+    attributes:
+      label: Your finds file
+      description: Drag norgannon-finds.txt into this box. It uploads by itself.
+      placeholder: Drop norgannon-finds.txt here
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else? (optional)
+      description: Something that looked wrong, or where you played.
