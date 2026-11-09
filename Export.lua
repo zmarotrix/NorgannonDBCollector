@@ -4,6 +4,8 @@
 --   NDBC:1:C:<base64>   CBOR, compressed, Base64 (C_EncodingUtil, modern clients)
 --   NDBC:1:L:<base64>   Lua table literal, Base64 (fallback when C_EncodingUtil is missing)
 --
+-- Both end in ":END" (1.5.0), so a paste that lost its tail can be told from a broken one.
+--
 -- The payload carries no player names or GUIDs: the store never records players, and the
 -- contributor field is a random ID made once per account so imports can tell submitters apart.
 
@@ -90,12 +92,12 @@ function C.ExportString()
       return E.EncodeBase64(E.CompressString(E.SerializeCBOR(payload)))
     end)
     if ok and type(encoded) == "string" and encoded ~= "" then
-      return "NDBC:" .. C.EXPORT_FORMAT .. ":C:" .. encoded
+      return "NDBC:" .. C.EXPORT_FORMAT .. ":C:" .. encoded .. ":END"
     end
   end
   local out = {}
   serialize(payload, out)
-  return "NDBC:" .. C.EXPORT_FORMAT .. ":L:" .. base64(table.concat(out))
+  return "NDBC:" .. C.EXPORT_FORMAT .. ":L:" .. base64(table.concat(out)) .. ":END"
 end
 
 -------------------------------------------------------------------------------------------
