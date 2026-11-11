@@ -19,6 +19,7 @@ local killTime = {}        -- guid -> when the player's kill happened, for its p
 local lastKillOrLoot = 0   -- an objective done with neither just before is an explore or event trigger
 local pendingObjectives = {}
 local questDialog, turnInDialog
+local lastQuestNpc        -- { kind, id, title, offered, t }: the quest giver last talked to, when the dialog had no quest ID
 local lastTurnIn          -- { id, guid, t, level } of the last turn-in, for quest chains
 local menuQuests = {}      -- npc guid -> { [questId] = true } offered in its last quest menu
 local lastSpell, lastContainer, lastObjectTip
@@ -303,6 +304,10 @@ local function readMenu()
     end
   end
   menuQuests[guid] = offered
+  local menuKind, menuId = C.ParseGUID(guid)
+  if menuKind == "npcs" or menuKind == "objects" then
+    lastQuestNpc = { kind = menuKind, id = menuId, offered = offered, t = now() }
+  end
   if lastTurnIn then lastTurnIn.menu = true end
   if InCombatLockdown and InCombatLockdown() then return end
   local key = playerKey()
@@ -354,7 +359,12 @@ function C.OnQuestDetail()
   if not C.CanCollect() then return end
   local questId = GetQuestID and C.pub(GetQuestID())
   C.Log("quest dialog: quest %s, npc %s", tostring(questId), tostring(UnitGUID and C.pub(UnitGUID("npc"))))
-  if not questId or questId == 0 then return end
+  local title = GetTitleText and C.pub(GetTitleText())
+  if not questId or questId == 0 then
+    local kind, id = dialogActor()
+    if kind then lastQuestNpc = { kind = kind, id = id, title = title, t = now() } end
+    return
+  end
   local kind, id = dialogActor()
   if kind == "npcs" then C.Interact("QUEST_GIVER") end
   questDialog = { id = questId, kind = kind, actor = id, title = GetTitleText and C.pub(GetTitleText()) }
@@ -445,9 +455,19 @@ function C.OnQuestAccepted(a, b)
   if faction then C.Inc(C.Sub(quest.obs, "factions"), faction) end
   C.CheckQuest(questId)
   if not (questDialog and questDialog.id == questId) then checkOffered(questId) end
-  if questDialog and questDialog.id == questId and questDialog.kind then
-    addActor(quest, questId, "starters", questDialog.kind, questDialog.actor)
-    C.CheckQuestActor(questId, "starters", questDialog.kind, questDialog.actor)
+  local starter = questDialog and questDialog.id == questId and questDialog.kind and questDialog
+  -- no dialog for this quest ID: the quest giver last talked to, when its menu offered this quest or its
+  -- dialog showed this quest's title, in the last few seconds
+  local last = lastQuestNpc
+  if not starter and last and now() - last.t <= 10 and ((last.offered and last.offered[questId])
+      or (last.title and info and last.title == info.title)) then
+    starter = { kind = last.kind, actor = last.id }
+  end
+  if starter then
+    addActor(quest, questId, "starters", starter.kind, starter.actor)
+    C.CheckQuestActor(questId, "starters", starter.kind, starter.actor)
+  else
+    C.Log("quest %d: no quest giver found (dialog %s)", questId, questDialog and tostring(questDialog.id) or "none")
   end
   questDialog = nil
   if not C.CaptureObjectives(questId) then pendingObjectives[questId] = true end
@@ -523,19 +543,24 @@ local LOOT_MODES = {
   [8613] = "skinning", [8617] = "skinning", [8618] = "skinning", [10768] = "skinning",
 }
 
--- npc ids the quests in the log ask to kill (NorgannonDB's and the Collector's own objectives)
-local objectiveNpcs = {}
+-- npc ids the quests in the log ask to kill, and items the unfinished ones still need (NorgannonDB's and the
+-- Collector's own objectives): a quest item drops only while its quest needs it
+local objectiveNpcs, neededItems = {}, {}
+local function entryId(e) return type(e) == "table" and (e.id or e[1]) or e end
 local function questNpcTargets()
   for k in pairs(objectiveNpcs) do objectiveNpcs[k] = nil end
+  for k in pairs(neededItems) do neededItems[k] = nil end
   if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries) then return end
   for i = 1, C.pub(C_QuestLog.GetNumQuestLogEntries()) or 0 do
     local info = C.pubTable(C_QuestLog.GetInfo(i))
     local qid = info and not info.isHeader and C.pub(info.questID)
     if qid then
+      local unfinished = not (C_QuestLog.IsComplete and C.pub(C_QuestLog.IsComplete(qid)))
       for _, source in ipairs({ DB.quests[qid], C.sv.quests[qid] }) do
         local objectives = source and source.objectives
-        for _, npc in ipairs(objectives and objectives.npcs or {}) do
-          objectiveNpcs[type(npc) == "table" and (npc.id or npc[1]) or npc] = true
+        for _, npc in ipairs(objectives and objectives.npcs or {}) do objectiveNpcs[entryId(npc)] = true end
+        if unfinished then
+          for _, item in ipairs(objectives and objectives.items or {}) do neededItems[entryId(item)] = true end
         end
       end
     end
@@ -629,6 +654,8 @@ function C.OnLootOpened()
           lastKillOrLoot = now()
           if mode == "loot" then
             C.Inc(rec.obs, "looted")
+            C.ScanObjectiveProgress()
+            for item in pairs(neededItems) do C.Inc(C.Sub(rec.obs, "questLooted"), item) end
             if kind == "npcs" then countKill(guid) end
             if kind == "objects" then
               if not rec.name and objectNames[guid] then C.SetName(rec, objectNames[guid]) end
