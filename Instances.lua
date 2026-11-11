@@ -62,6 +62,11 @@ function C.UpdateInstance()
   if current and current.id == instanceId then return current end
   local rec = record(instanceId)
   rec.obs.visits = (rec.obs.visits or 0) + 1
+  -- where the player was just before: the entrance, on the outside zone's map
+  local last = C.lastOutdoor
+  if last and GetTime and GetTime() - last.t <= 60 then
+    C.AddSpawn(rec, last.area, last.x, last.y, "entrances", "entranceHits")
+  end
   rec.type, rec.maxPlayers = itype, maxPlayers
   if name then
     if C.enUS or not rec.name then rec.name = name end

@@ -86,7 +86,11 @@ function C.PlayerPosition()
   local x, y = pos:GetXY()
   x, y = C.pub(x), C.pub(y)
   if not x or not y or x <= 0 or y <= 0 or x >= 1 or y >= 1 then return nil end
-  return area, round2(x * 100), round2(y * 100), uiMap
+  x, y = round2(x * 100), round2(y * 100)
+  local last = C.lastOutdoor or {}
+  C.lastOutdoor = last
+  last.area, last.x, last.y, last.t = area, x, y, GetTime and GetTime() or 0
+  return area, x, y, uiMap
 end
 
 -- Maps NorgannonDB doesn't know (Forever's new zones) and instance floors: the position on the player's own
@@ -128,9 +132,9 @@ end
 function C.PlaceAtPlayer(rec, kind, id)
   local area, x, y = C.PlayerPosition()
   if area then
-    rec.zone = rec.zone or area
+    if kind then rec.zone = rec.zone or area end
     local _, isNew = C.AddSpawn(rec, area, x, y)
-    if isNew then C.CheckSpawn(kind, id, area, x, y) end
+    if isNew and kind then C.CheckSpawn(kind, id, area, x, y) end
     return area, x, y
   end
   local uiMap, mx, my, info = C.MapPosition()

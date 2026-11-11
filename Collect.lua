@@ -15,6 +15,8 @@ local lootedItems = {}     -- guid..mode -> { [itemId] = true }
 local lootedGuid = {}      -- guid..mode -> true
 local guidByName = {}      -- unit name -> last creature guid seen with it (kill fallback)
 local pendingKills = {}
+local killTime = {}        -- guid -> when the player's kill happened, for its position
+local lastKillOrLoot = 0   -- an objective done with neither just before is an explore or event trigger
 local pendingObjectives = {}
 local questDialog, turnInDialog
 local lastTurnIn          -- { id, guid, t, level } of the last turn-in, for quest chains
@@ -521,13 +523,43 @@ local LOOT_MODES = {
   [8613] = "skinning", [8617] = "skinning", [8618] = "skinning", [10768] = "skinning",
 }
 
+-- npc ids the quests in the log ask to kill (NorgannonDB's and the Collector's own objectives)
+local objectiveNpcs = {}
+local function questNpcTargets()
+  for k in pairs(objectiveNpcs) do objectiveNpcs[k] = nil end
+  if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries) then return end
+  for i = 1, C.pub(C_QuestLog.GetNumQuestLogEntries()) or 0 do
+    local info = C.pubTable(C_QuestLog.GetInfo(i))
+    local qid = info and not info.isHeader and C.pub(info.questID)
+    if qid then
+      for _, source in ipairs({ DB.quests[qid], C.sv.quests[qid] }) do
+        local objectives = source and source.objectives
+        for _, npc in ipairs(objectives and objectives.npcs or {}) do
+          objectiveNpcs[type(npc) == "table" and (npc.id or npc[1]) or npc] = true
+        end
+      end
+    end
+  end
+end
+
 local function countKill(guid)
   if killed[guid] then return end
   local kind, id = C.ParseGUID(guid)
   if kind ~= "npcs" then return end
   killed[guid] = true
-  C.Inc(C.Record("npcs", id).obs, "kills")
+  local rec = C.Record("npcs", id)
+  C.Inc(rec.obs, "kills")
   if C.TagInstanceNpc then C.TagInstanceNpc(id) end
+  -- a quest target the player just killed lies within spell range: its kill position. Mobs NorgannonDB
+  -- doesn't know at all (a new zone's) count too.
+  local t = killTime[guid]
+  killTime[guid] = nil
+  if t and now() - t <= 20 and not seenGuid[guid] and (objectiveNpcs[id] or not DB.npcs[id]) then
+    if C.PlaceAtPlayer(rec, "npcs", id) then
+      seenGuid[guid] = true
+      C.Inc(rec.obs, "killSpots")
+    end
+  end
 end
 
 local function flushKills()
@@ -546,6 +578,8 @@ function C.OnCombatLog()
   if source == player or (pet and source == pet) then
     C.cleuKills = true
     table.insert(pendingKills, dest)   -- counted once out of combat
+    killTime[dest] = now()
+    lastKillOrLoot = now()
   end
 end
 
@@ -592,6 +626,7 @@ function C.OnLootOpened()
         local rec = C.Record(kind, id)
         if not lootedGuid[key] then
           lootedGuid[key] = true
+          lastKillOrLoot = now()
           if mode == "loot" then
             C.Inc(rec.obs, "looted")
             if kind == "npcs" then countKill(guid) end
@@ -715,7 +750,51 @@ end
 
 handlers.PLAYER_TARGET_CHANGED = function() C.SeeUnit("target") end
 handlers.UPDATE_MOUSEOVER_UNIT = function() C.SeeUnit("mouseover") end
+-------------------------------------------------------------------------------------------
+-- Explore and event objectives. An objective that turns done with no kill or loot just
+-- before (type event, area or log: "Explore the cave", "Find the camp") happened where the
+-- player stands: quest.triggers[index] keeps that position, the merge's objectives.explore.
+-------------------------------------------------------------------------------------------
+
+local TRIGGER_TYPES = { event = true, area = true, log = true }
+local objectiveDone = {}   -- questId * 100 + index -> done, as last seen
+local objectivesPrimed = false
+local lastObjectiveScan = 0
+
+function C.ScanObjectiveProgress(force)
+  if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetQuestObjectives) then return end
+  if not C.CanCollect() then return end
+  local t = now()
+  if not force and t - lastObjectiveScan < 1 then return end
+  lastObjectiveScan = t
+  questNpcTargets()
+  for i = 1, C.pub(C_QuestLog.GetNumQuestLogEntries()) or 0 do
+    local info = C.pubTable(C_QuestLog.GetInfo(i))
+    local qid = info and not info.isHeader and C.pub(info.questID)
+    if qid then
+      for index, o in ipairs(C.pubTable(C_QuestLog.GetQuestObjectives(qid)) or {}) do
+        o = C.pubTable(o)
+        local key = qid * 100 + index
+        local done = o and C.pub(o.finished) and true or false
+        if objectivesPrimed and done and objectiveDone[key] == false and TRIGGER_TYPES[C.pub(o.type)]
+            and t - lastKillOrLoot > 3 then
+          local triggers = C.Sub(C.Record("quests", qid), "triggers")
+          local spot = triggers[index] or { obs = {} }
+          if C.PlaceAtPlayer(spot) then
+            if C.enUS and C.pub(o.text) then spot.text = o.text end
+            triggers[index] = spot
+            C.Log("quest %d objective %d done here: a trigger", qid, index)
+          end
+        end
+        objectiveDone[key] = done
+      end
+    end
+  end
+  objectivesPrimed = true
+end
+
 handlers.PLAYER_REGEN_ENABLED = function()
+  C.ScanObjectiveProgress(true)
   flushKills()
   C.FlushInstanceBosses()
 end
@@ -724,6 +803,10 @@ handlers.PLAYER_ENTERING_WORLD = function()
   if RequestRaidInfo then RequestRaidInfo() end   -- answers with UPDATE_INSTANCE_INFO (lockouts)
 end
 handlers.ZONE_CHANGED_NEW_AREA = function() C.UpdateInstance() end
+-- the last outdoor position, for an instance's entrance: kept fresh every few seconds outside instances
+if C_Timer and C_Timer.NewTicker then
+  C_Timer.NewTicker(5, function() if C.sv and C.CanCollect() then C.PlayerPosition() end end)
+end
 handlers.ENCOUNTER_END = function(...) C.OnEncounterEnd(...) end
 handlers.INSTANCE_ENCOUNTER_ENGAGE_UNIT = function() C.ReadBossFrames() end
 handlers.UPDATE_INSTANCE_INFO = function() C.ReadLockouts() end
@@ -741,6 +824,7 @@ handlers.QUEST_COMPLETE = C.OnQuestComplete
 handlers.QUEST_TURNED_IN = C.OnQuestTurnedIn
 handlers.QUEST_LOG_UPDATE = function()
   if not C.CanCollect() then return end
+  C.ScanObjectiveProgress()
   for questId in pairs(pendingObjectives) do
     if C.CaptureObjectives(questId) then pendingObjectives[questId] = nil end
   end
