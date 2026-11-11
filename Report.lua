@@ -145,6 +145,8 @@ SlashCmdList["NORGANNONDBCOLLECTOR"] = function(msg)
   elseif cmd == "corrections" then
     settings.applyCorrections = a ~= "off"
     C.Print("corrections " .. (settings.applyCorrections and "on" or "off") .. " (takes effect after /reload)")
+  elseif cmd == "rangeprobe" then
+    C.RangeProbe()
   elseif cmd == "reset" then
     local keep = settings
     _G.NorgannonDBCollectorDB = nil
