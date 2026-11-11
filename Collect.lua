@@ -229,6 +229,62 @@ local function questDone(questId)
   if ok then return C.pub(done) and true or false end
 end
 
+-------------------------------------------------------------------------------------------
+-- Who may take a quest. Each time a quest is offered (an NPC's menu, its details, or
+-- accepting it), obs.offered counts the sighting under "CLASS:raceId:level". When the
+-- player stands at an NPC known to start a quest, and the quest isn't offered although
+-- it's not done, not in the log and no supposed prerequisite is missing, obs.notOffered
+-- counts the same key. The merge turns these into minLevel and class and race limits.
+-- Each key counts once per session, so a busy quest giver costs one table lookup.
+-------------------------------------------------------------------------------------------
+
+local offerSeen = {}   -- "questId|kind|key" -> true this session
+local playerKeyCache
+
+local function playerKey()
+  local level = UnitLevel and C.pub(UnitLevel("player"))
+  if not level then return nil end
+  if not playerKeyCache then
+    local _, class = UnitClass("player")
+    local _, _, race = UnitRace("player")
+    class, race = C.pub(class), C.pub(race)
+    if type(class) ~= "string" or type(race) ~= "number" then return nil end
+    playerKeyCache = class .. ":" .. race .. ":"
+  end
+  return playerKeyCache .. level
+end
+
+local function noteOffer(questId, kind, key)
+  key = key or playerKey()
+  if not key then return end
+  local mark = questId .. "|" .. kind .. "|" .. key
+  if offerSeen[mark] then return end
+  offerSeen[mark] = true
+  C.Inc(C.Sub(questRecord(questId).obs, kind), key)
+end
+C.NoteOffer = noteOffer
+
+local chainCandidates
+
+-- The NPC's own quests that it didn't offer: evidence for a class or race limit.
+local function noteNotOffered(npcId, offered, key)
+  local starts = {}
+  local known = DB.npcs[npcId]
+  for _, q in ipairs(known and known.questStarts or {}) do starts[q] = true end
+  local seen = C.sv.npcs[npcId]
+  for _, q in ipairs(seen and seen.questStarts or {}) do starts[q] = true end
+  for questId in pairs(starts) do
+    if not offered[questId] and not offerSeen[questId .. "|notOffered|" .. key] and questDone(questId) == false
+        and not (C_QuestLog.GetLogIndexForQuestID and C.pub(C_QuestLog.GetLogIndexForQuestID(questId))) then
+      local blocked = false
+      for pre in pairs(chainCandidates(questId)) do
+        if questDone(pre) ~= true then blocked = true break end
+      end
+      if not blocked then noteOffer(questId, "notOffered", key) end
+    end
+  end
+end
+
 -- The quests the NPC's quest menu offers right now.
 local function readMenu()
   local guid = UnitGUID and C.pub(UnitGUID("npc"))
@@ -249,11 +305,17 @@ local function readMenu()
   end
   menuQuests[guid] = offered
   if lastTurnIn then lastTurnIn.menu = true end
+  if InCombatLockdown and InCombatLockdown() then return end
+  local key = playerKey()
+  if not key then return end
+  for questId in pairs(offered) do noteOffer(questId, "offered", key) end
+  local kind, npcId = C.ParseGUID(guid)
+  if kind == "npcs" and npcId then noteNotOffered(npcId, offered, key) end
 end
 C.ReadQuestMenu = readMenu
 
 -- Quests this one might follow: what the Collector saw and what NorgannonDB lists.
-local function chainCandidates(questId)
+function chainCandidates(questId)
   local out = {}
   local rec = C.sv.quests[questId]
   for pre in pairs(rec and rec.obs.after or {}) do out[pre] = true end
@@ -299,6 +361,7 @@ function C.OnQuestDetail()
   questDialog = { id = questId, kind = kind, actor = id, title = GetTitleText and C.pub(GetTitleText()) }
   if kind ~= "items" then checkChain(questId, UnitGUID and C.pub(UnitGUID("npc"))) end
   checkOffered(questId)
+  noteOffer(questId, "offered")
 end
 
 -- Splits an objective line into its subject using the client's own objective formats.
@@ -378,6 +441,7 @@ function C.OnQuestAccepted(a, b)
     C.SetName(quest, questDialog.title)
   end
   C.Inc(quest.obs, "accepted")
+  noteOffer(questId, "offered")
   local faction = UnitFactionGroup and C.pub(UnitFactionGroup("player"))
   if faction then C.Inc(C.Sub(quest.obs, "factions"), faction) end
   C.CheckQuest(questId)
