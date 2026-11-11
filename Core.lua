@@ -89,6 +89,57 @@ function C.PlayerPosition()
   return area, round2(x * 100), round2(y * 100), uiMap
 end
 
+-- Maps NorgannonDB doesn't know (Forever's new zones) and instance floors: the position on the player's own
+-- map, whatever it is, so nothing seen there is lost. World and continent maps give nil. The merge turns the
+-- map into an area by its name (C.sv.maps).
+local POSITION_MAP_TYPES = { [3] = true, [4] = true, [5] = true, [6] = true }   -- zone, dungeon, micro, orphan
+
+function C.MapPosition()
+  if not (C_Map and C_Map.GetBestMapForUnit) then return nil end
+  local uiMap = C.pub(C_Map.GetBestMapForUnit("player"))
+  if not uiMap then return nil end
+  local info = C_Map.GetMapInfo and C.pubTable(C_Map.GetMapInfo(uiMap))
+  if not (info and POSITION_MAP_TYPES[C.pub(info.mapType)]) then return nil end
+  local pos = C.pub(C_Map.GetPlayerMapPosition(uiMap, "player"))
+  if not pos then return nil end
+  local x, y = pos:GetXY()
+  x, y = C.pub(x), C.pub(y)
+  if not x or not y or x <= 0 or y <= 0 or x >= 1 or y >= 1 then return nil end
+  return uiMap, round2(x * 100), round2(y * 100), info
+end
+
+-- C.sv.maps[uiMap] = { name (enUS), parent, type, instance, difficulty }: what the merge needs to place the map.
+function C.NoteMap(uiMap, info)
+  local maps = C.Sub(C.sv, "maps")
+  local m = maps[uiMap]
+  if m then return m end
+  m = { parent = C.pub(info.parentMapID), type = C.pub(info.mapType) }
+  if C.enUS then m.name = C.pub(info.name) end
+  if C.InInstance() and GetInstanceInfo then
+    local _, _, difficulty, _, _, _, _, instanceId = GetInstanceInfo()
+    m.instance, m.difficulty = C.pub(instanceId), C.pub(difficulty)
+  end
+  maps[uiMap] = m
+  return m
+end
+
+-- Places a record where the player stands: a zone position when NorgannonDB knows the map, else the raw map
+-- position (rec.mapSpawns). Returns the area, "map", or nil when there's no position at all.
+function C.PlaceAtPlayer(rec, kind, id)
+  local area, x, y = C.PlayerPosition()
+  if area then
+    rec.zone = rec.zone or area
+    local _, isNew = C.AddSpawn(rec, area, x, y)
+    if isNew then C.CheckSpawn(kind, id, area, x, y) end
+    return area, x, y
+  end
+  local uiMap, mx, my, info = C.MapPosition()
+  if not uiMap then return nil end
+  C.NoteMap(uiMap, info)
+  C.AddSpawn(rec, uiMap, mx, my, "mapSpawns", "mapHits")
+  return "map", mx, my, uiMap
+end
+
 -------------------------------------------------------------------------------------------
 -- Saved data
 -------------------------------------------------------------------------------------------
@@ -169,10 +220,9 @@ end
 
 -- Adds a sighting to rec.spawns (SpawnList shape {x, y}); counts live in rec.obs.hits.
 -- Returns the point and true when it is a new point.
-function C.AddSpawn(rec, area, x, y)
-  rec.spawns = rec.spawns or {}
-  local points = C.Sub(rec.spawns, area)
-  local hits = C.Sub(C.Sub(rec.obs, "hits"), area)
+function C.AddSpawn(rec, area, x, y, field, hitsField)
+  local points = C.Sub(C.Sub(rec, field or "spawns"), area)
+  local hits = C.Sub(C.Sub(rec.obs, hitsField or "hits"), area)
   for i, p in ipairs(points) do
     if math.abs(p[1] - x) <= C.CLUSTER and math.abs(p[2] - y) <= C.CLUSTER then
       hits[i] = (hits[i] or 1) + 1

@@ -70,17 +70,14 @@ function C.SeeUnit(unit, precise)
     C.Log("%s: %s %d, too far for a position", unit, kind, id)
     return id, kind
   end
-  local area, x, y = C.PlayerPosition()
+  local area, x, y, uiMap = C.PlaceAtPlayer(rec, kind, id)
   if not area then
-    C.Log("%s: %s %d, no map position (instance or unknown map)", unit, kind, id)
+    C.Log("%s: %s %d, no map position (world map or no position)", unit, kind, id)
     return id, kind
   end
-  C.Log("%s: %s %d at %d %.1f,%.1f", unit, kind, id, area, x, y)
+  C.Log("%s: %s %d at %s %s %.1f,%.1f", unit, kind, id, area, tostring(uiMap or ""), x, y)
   seenGuid[guid] = true
-  rec.zone = rec.zone or area
-  local _, isNew = C.AddSpawn(rec, area, x, y)
   C.Inc(rec.obs, "seen")
-  if isNew then C.CheckSpawn(kind, id, area, x, y) end
   return id, kind
 end
 
@@ -604,13 +601,9 @@ function C.OnLootOpened()
             end
             -- the player stands on the corpse or node while looting: a precise position
             if kind ~= "items" and not seenGuid[guid] then
-              local area, x, y = C.PlayerPosition()
-              if area then
+              if C.PlaceAtPlayer(rec, kind, id) then
                 seenGuid[guid] = true
-                rec.zone = rec.zone or area
-                local _, isNew = C.AddSpawn(rec, area, x, y)
                 C.Inc(rec.obs, "seen")
-                if isNew then C.CheckSpawn(kind, id, area, x, y) end
               end
             end
           else
