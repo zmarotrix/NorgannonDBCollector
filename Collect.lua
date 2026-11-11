@@ -349,17 +349,31 @@ function C.CaptureObjectives(questId)
   return true
 end
 
+-- The quest log header above a quest: its zone (or a category like a class
+-- or profession). NorgannonDB has no zone for quests it doesn't know; the
+-- merge turns this name into an area through the client's AreaTable.
+function C.QuestHeader(logIndex)
+  if not (C_QuestLog and C_QuestLog.GetInfo) then return nil end
+  for i = logIndex - 1, 1, -1 do
+    local info = C.pubTable(C_QuestLog.GetInfo(i))
+    if not info then return nil end
+    if info.isHeader then return C.pub(info.title) end
+  end
+end
+
 function C.OnQuestAccepted(a, b)
   -- Forever sends the quest ID; older clients send (logIndex, questID)
   local questId = C.pub(b or a)
   C.Log("quest accepted: %s (dialog %s)", tostring(questId), questDialog and tostring(questDialog.id) or "none")
   if not questId or not C.CanCollect() then return end
   local quest = questRecord(questId)
-  local info = C_QuestLog and C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(questId)
-  info = info and C.pubTable(C_QuestLog.GetInfo(info))
+  local logIndex = C_QuestLog and C_QuestLog.GetLogIndexForQuestID and C.pub(C_QuestLog.GetLogIndexForQuestID(questId))
+  local info = logIndex and C.pubTable(C_QuestLog.GetInfo(logIndex))
   if info then
     if C.enUS and C.pub(info.title) then quest.name = info.title end
     if C.pub(info.level) then quest.level = info.level end
+    local header = C.enUS and C.QuestHeader(logIndex)
+    if type(header) == "string" and header ~= "" then C.Inc(C.Sub(quest.obs, "header"), header) end
   elseif questDialog and questDialog.id == questId and questDialog.title then
     C.SetName(quest, questDialog.title)
   end
