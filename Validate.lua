@@ -266,8 +266,9 @@ function C.CheckService(npcId, tType, class, spellId, s)
     end
     return
   end
-  if not DB.training or next(DB.training) == nil then
-    -- nothing to compare with yet (NorgannonDB before 1.5, or no class confirmed): one find per class trainer says its list is worth sharing
+  if not (DB.training and DB.training[class] and next(DB.training[class])) then
+    -- nothing to compare with yet for this class (NorgannonDB before 1.5, or the class not confirmed): one find per
+    -- class trainer says its list is worth sharing, not one per spell
     return C.Flag("trainingMissing", "npcs", npcId, class .. " trainer's spells aren't in NorgannonDB yet", class)
   end
   local entry = DB.training[class] and DB.training[class][spellId]
