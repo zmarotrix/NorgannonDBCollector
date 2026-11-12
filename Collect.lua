@@ -711,6 +711,83 @@ end
 -- Tooltip names (objects) and subnames (npcs)
 -------------------------------------------------------------------------------------------
 
+-- The game's own quest lines under a mob's name ("It Takes Guts", "10/15 Beast Entrails"): the game says this
+-- NPC counts for that quest's objective, before anything is killed. Only the tooltip's data lines with the
+-- game's QuestTitle / QuestObjective types are read, never the text on screen, so lines other add-ons add
+-- (Clairvoyance's own) can't pass for the game's. quest.tips[objective index][npcId] counts mobs (once per
+-- GUID); index 0 is a title with no objective line matched. sv.tipProbe says what the client gives.
+local tipSeen, logTitles, logTitlesAt = {}, {}, -1
+
+local function questByTitle(title)
+  local t = now()
+  if t - logTitlesAt > 5 and C_QuestLog and C_QuestLog.GetNumQuestLogEntries then
+    logTitlesAt = t
+    for k in pairs(logTitles) do logTitles[k] = nil end
+    for i = 1, C.pub(C_QuestLog.GetNumQuestLogEntries()) or 0 do
+      local info = C.pubTable(C_QuestLog.GetInfo(i))
+      local qid = info and not info.isHeader and C.pub(info.questID)
+      local name = qid and C.pub(info.title)
+      if name then logTitles[name] = qid end
+    end
+  end
+  return logTitles[title]
+end
+
+local function lineId(line)
+  local id = C.pub(line.id)
+  if id == nil and C.pubTable(line.args) then
+    for _, arg in ipairs(line.args) do
+      arg = C.pubTable(arg)
+      if arg and arg.field == "id" then id = C.pub(arg.intVal) end
+    end
+  end
+  return type(id) == "number" and id or nil
+end
+
+local function objectiveIndex(qid, text)
+  if not (C_QuestLog and C_QuestLog.GetQuestObjectives) then return nil end
+  local want = C.ObjectiveName(text)
+  for index, o in ipairs(C.pubTable(C_QuestLog.GetQuestObjectives(qid)) or {}) do
+    o = C.pubTable(o)
+    local otext = o and C.pub(o.text)
+    if otext and (otext == text or C.ObjectiveName(otext, C.pub(o.type)) == want) then return index end
+  end
+end
+
+function C.ReadQuestLines(npcId, guid, lines)
+  lines = C.pubTable(lines)
+  if not (guid and lines) or tipSeen[guid] then return end
+  local types = Enum and Enum.TooltipDataLineType
+  local titleType, objectiveType = types and types.QuestTitle, types and types.QuestObjective
+  local probe = C.sv.tipProbe or { units = 0, titles = 0, withId = 0, objectives = 0, matched = 0 }
+  C.sv.tipProbe = probe
+  probe.lineTypes = titleType ~= nil
+  if not titleType then return end
+  tipSeen[guid] = true
+  probe.units = probe.units + 1
+  local qid, matched
+  for _, line in ipairs(lines) do
+    line = C.pubTable(line)
+    local ltype = line and C.pub(line.type)
+    local text = line and C.pub(line.leftText)
+    if ltype == titleType then
+      if qid and not matched then C.Inc(C.Sub(C.Sub(C.Record("quests", qid), "tips"), 0), npcId) end
+      probe.titles = probe.titles + 1
+      qid, matched = lineId(line), false
+      if qid then probe.withId = probe.withId + 1 elseif type(text) == "string" then qid = questByTitle(text) end
+    elseif ltype == objectiveType and qid and type(text) == "string" then
+      probe.objectives = probe.objectives + 1
+      local index = objectiveIndex(qid, text)
+      if index then
+        probe.matched = probe.matched + 1
+        matched = true
+        C.Inc(C.Sub(C.Sub(C.Record("quests", qid), "tips"), index), npcId)
+      end
+    end
+  end
+  if qid and not matched then C.Inc(C.Sub(C.Sub(C.Record("quests", qid), "tips"), 0), npcId) end
+end
+
 local function hookTooltips()
   if not TooltipDataProcessor or not Enum or not Enum.TooltipDataType then return end
   if Enum.TooltipDataType.Object then
@@ -725,10 +802,12 @@ local function hookTooltips()
     end)
   end
   TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(_, data)
-    if not C.CanCollect() or not C.enUS then return end
+    if not C.CanCollect() then return end
     data = C.pubTable(data)
     local kind, id = C.ParseGUID(data and data.guid)
-    if kind ~= "npcs" or not C.sv.npcs[id] then return end
+    if kind ~= "npcs" then return end
+    C.ReadQuestLines(id, C.pub(data.guid), data.lines)
+    if not C.enUS or not C.sv.npcs[id] then return end
     local line = data.lines and C.pubTable(data.lines[2])
     local text = line and C.pub(line.leftText)
     local levelWord = LEVEL or "Level"

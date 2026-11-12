@@ -89,6 +89,7 @@ it: the Collector starts working the next time you log in.
 | Kills and loot | `PARTY_KILL` (or XP message), loot window sources | `obs.kills`, `obs.looted`, `obs.loot[itemId]` → `drops` chances at logout |
 | Pickpocket / skinning / container loot | spell cast before the loot window; opened bag item | `obs.pickpocketLoot`, `obs.skinningLoot`, `items[id].obs.loot` |
 | Quests: giver, ender, objectives (text, type, required count), rewards | quest dialogs + quest log | `quests[id].starters/finishers/objectives/rewards` |
+| Which objective a mob counts for: the game's own quest lines under its name (quest title and objective), out of combat, once per mob; lines other add-ons add are never read. `/ndbc tips` says what the client gives | unit tooltips (`TooltipDataProcessor`, the game's QuestTitle / QuestObjective lines) | `quests[id].tips[objective][npcId]` |
 | Quest chains: the NPC offers the next quest straight after a turn-in (no quest menu in between, no level-up); seeing a quest offered while a supposed prerequisite isn't done rules that one out | quest dialogs, gossip and greeting menus, completed quests | `quests[id].obs.after[prevId]`, `obs.notAfter[prevId]` |
 | Vendors: items and stock | merchant window | `npcs[id].sells`, `items[id].vendors` |
 | Services | gossip, merchant, trainer, flight map, bank, AH, stable, innkeeper frames | `npcs[id].flags` (NorgannonDB `npcFlags`) |

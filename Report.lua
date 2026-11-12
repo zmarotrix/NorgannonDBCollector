@@ -147,6 +147,16 @@ SlashCmdList["NORGANNONDBCOLLECTOR"] = function(msg)
     C.Print("corrections " .. (settings.applyCorrections and "on" or "off") .. " (takes effect after /reload)")
   elseif cmd == "rangeprobe" then
     C.RangeProbe()
+  elseif cmd == "tips" then
+    local p = C.sv.tipProbe
+    if not p then
+      C.Print("tips: no NPC tooltip read yet; hover a mob your quest needs")
+    elseif not p.lineTypes then
+      C.Print("tips: this client's tooltips don't say which lines are quest lines; nothing is read")
+    else
+      C.Print(("tips: %d NPCs hovered; %d quest titles (%d with a quest ID), %d objective lines (%d matched to the quest log)")
+        :format(p.units, p.titles, p.withId, p.objectives, p.matched))
+    end
   elseif cmd == "reset" then
     local keep = settings
     _G.NorgannonDBCollectorDB = nil
