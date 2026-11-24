@@ -102,6 +102,7 @@ local HELP = {
   "/ndbc share - send what you found in (copy, then paste in Discord)",
   "/ndbc reminder on|off - say once a day when you have something new to share (now: %s)",
   "/ndbc debug [show [n] | chat | clear] - log what the collector sees (saved with your data)",
+  "/ndbc questxp - for NorgannonDB builders: ask the server about every quest so tools can read their XP",
 }
 
 SLASH_NORGANNONDBCOLLECTOR1 = "/ndbc"
@@ -136,6 +137,9 @@ SlashCmdList["NORGANNONDBCOLLECTOR"] = function(msg)
     C.Print("share reminder " .. (settings.shareReminder and "on" or "off"))
   elseif cmd == "stats" then
     C.Print(summaryLine(C.Stats()))
+    if C.sv.settings.questSurvey and C.QuestSurveyStatus then C.Print(C.QuestSurveyStatus()) end
+  elseif cmd == "questxp" then
+    C.QuestSurveyToggle()
   elseif cmd == "verbose" then
     settings.verbose = not settings.verbose
     C.Print("verbose " .. (settings.verbose and "on" or "off"))

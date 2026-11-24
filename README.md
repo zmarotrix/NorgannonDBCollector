@@ -125,6 +125,25 @@ latter to `addons/NorgannonDBCollector/Corrections.lua` to use the corrections i
 </details>
 
 <details>
+<summary><b>Quest XP survey</b> (maintainer)</summary>
+
+WoW Forever pays more XP than Classic for many quests, and only the server knows how much. `/ndbc questxp`
+switches on a survey that asks the server about every NorgannonDB quest (`C_QuestLog.RequestLoadQuestByID`),
+five a second at most, never in combat, skipping quests the client already has. The client keeps each answer,
+the quest's XP difficulty and multiplier included, in its quest cache. When the Collector says the survey is
+done, exit the game (the cache is written then) and run:
+
+```bash
+python tools/norgannondb/client_questxp.py
+```
+
+It adds the cache to `tools/norgannondb/forever_questxp.json`, which the next NorgannonDB build uses. The
+survey runs again by itself after a game patch (the client empties its cache then) until it's switched off.
+It saves only its progress (`questSurvey`), never anything about you. Details: `docs/quest-xp.md`.
+
+</details>
+
+<details>
 <summary><b>Feeding it back into NorgannonDB</b> (maintainer)</summary>
 
 ```bash
